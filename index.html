@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gobblet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Accessible p5.js version of the Gobblet strategy game for one or two players.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Baloo+2:wght@700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#board-grid">Skip to the board</a>
+<div class="app">
+  <header class="bar">
+    <div class="bar-inner">
+      <h1 class="brand">Gobblet</h1>
+      <nav class="actions" aria-label="Game controls">
+        <button type="button" id="btn-new" class="btn btn-primary">New game</button>
+        <button type="button" id="btn-undo" class="btn">Undo</button>
+        <button type="button" id="btn-draw" class="btn" aria-label="Offer draw"><span class="wide-only">Offer draw</span><span class="narrow-only" aria-hidden="true">Draw</span></button>
+        <button type="button" id="btn-moves" class="btn">Moves</button>
+        <button type="button" id="btn-rules" class="btn">Rules</button>
+      </nav>
+    </div>
+  </header>
+
+  <section class="status" aria-label="Game status">
+    <div class="status-inner">
+      <span id="turn-chip" class="chip" aria-hidden="true"></span>
+      <div class="status-text">
+        <p id="status" class="status-main">Loading…</p>
+        <p id="hint" class="status-hint"></p>
+      </div>
+    </div>
+  </section>
+
+  <main id="stage" class="stage">
+    <!-- p5 canvas is inserted here; it is decorative (aria-hidden). -->
+    <!-- The accessible controls below sit exactly on top of the drawing. -->
+    <div id="hit" class="hit">
+      <div id="board-grid" role="grid" aria-label="Board, 4 by 4. Columns A to D, rows 1 to 4. Use arrow keys to move, Enter or Space to choose." aria-rowcount="4" aria-colcount="4"></div>
+      <div id="reserve-0" role="group" class="reserve-group" aria-label="Yellow's stacks"></div>
+      <div id="reserve-1" role="group" class="reserve-group" aria-label="Red's stacks"></div>
+    </div>
+  </main>
+</div>
+
+<div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="alert" class="sr-only" role="alert"></div>
+
+<!-- New game -->
+<dialog id="dlg-setup" aria-labelledby="setup-title">
+  <form id="setup-form" method="dialog" class="dlg">
+    <h2 id="setup-title">New game</h2>
+
+    <fieldset>
+      <legend>Players</legend>
+      <label class="opt"><input type="radio" name="mode" id="mode-1" value="1" checked> 1 player against the computer</label>
+      <label class="opt"><input type="radio" name="mode" id="mode-2" value="2"> 2 players on this device</label>
+      <label class="opt"><input type="radio" name="mode" id="mode-0" value="0"> Watch computer against computer</label>
+    </fieldset>
+
+    <fieldset id="fs-color">
+      <legend>Your colour</legend>
+      <label class="opt"><input type="radio" name="human" id="human-0" value="0" checked> Yellow</label>
+      <label class="opt"><input type="radio" name="human" id="human-1" value="1"> Red</label>
+    </fieldset>
+
+    <fieldset id="fs-level">
+      <legend>Computer difficulty</legend>
+      <div class="field" id="lvl0-wrap">
+        <label for="lvl-0">Yellow computer</label>
+        <select id="lvl-0">
+          <option value="easy">Easy (random moves)</option>
+          <option value="hard" selected>Hard (searches for the best move)</option>
+        </select>
+      </div>
+      <div class="field" id="lvl1-wrap">
+        <label for="lvl-1">Red computer</label>
+        <select id="lvl-1">
+          <option value="easy">Easy (random moves)</option>
+          <option value="hard" selected>Hard (searches for the best move)</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Who moves first</legend>
+      <label class="opt"><input type="radio" name="first" id="first-0" value="0" checked> Yellow</label>
+      <label class="opt"><input type="radio" name="first" id="first-1" value="1"> Red</label>
+      <label class="opt"><input type="radio" name="first" id="first-r" value="r"> Random</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <label class="opt"><input type="checkbox" id="opt-touch" checked> Touch-move rule (a piece on the board you pick up must be played)</label>
+      <label class="opt"><input type="checkbox" id="opt-numbers" checked> Show size numbers on pieces</label>
+      <label class="opt"><input type="checkbox" id="opt-hidden"> Learning mode: show pieces hidden under other pieces</label>
+      <label class="opt"><input type="checkbox" id="opt-anim" checked> Animate moves</label>
+    </fieldset>
+
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="setup-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="setup-start">Start game</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Draw offer between two people -->
+<dialog id="dlg-draw" aria-labelledby="draw-title">
+  <form method="dialog" class="dlg">
+    <h2 id="draw-title">Draw offered</h2>
+    <p id="draw-text"></p>
+    <div class="dlg-actions">
+      <button class="btn" value="no" id="draw-no">Decline</button>
+      <button class="btn btn-primary" value="yes" id="draw-yes">Accept draw</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Move list -->
+<dialog id="dlg-moves" aria-labelledby="moves-title">
+  <form method="dialog" class="dlg">
+    <h2 id="moves-title">Moves</h2>
+    <p class="muted" id="moves-empty">No moves yet.</p>
+    <ol id="move-list" class="move-list"></ol>
+    <div class="dlg-actions"><button class="btn btn-primary" id="moves-close">Close</button></div>
+  </form>
+</dialog>
+
+<!-- Rules -->
+<dialog id="dlg-rules" aria-labelledby="rules-title">
+  <form method="dialog" class="dlg dlg-wide">
+    <h2 id="rules-title">How to play</h2>
+    <p><strong>Goal:</strong> be the first to show 4 of your colour in a row: across, down, or diagonally. Sizes do not matter.</p>
+    <p><strong>Setup:</strong> each player has 12 Gobblets in 3 stacks of 4 nesting sizes, numbered 1 (small) to 4 (extra large). Only the top piece of a stack can be played, so stacks are used from the largest down.</p>
+    <h3>On your turn, do one thing</h3>
+    <ol>
+      <li>Play a new piece from one of your stacks onto an <strong>empty</strong> square.</li>
+      <li>Move one of your pieces on the board to any empty square. It does not need to be next to it.</li>
+      <li>Move one of your pieces on the board on top of any <strong>smaller</strong> piece, yours or your opponent's. This is gobbling.</li>
+    </ol>
+    <h3>Gobbling from a stack</h3>
+    <p>A new piece from a stack normally goes on an empty square. The exception: if your opponent already has 3 in a row, you may gobble one of those 3 pieces with a bigger piece from a stack.</p>
+    <h3>Important</h3>
+    <ul>
+      <li>You can move any of your pieces on the board, even one that is covering another piece.</li>
+      <li>If lifting your piece uncovers your opponent's piece and that shows 4 in a row for them, you lose, unless the piece you are moving lands on another square of that same line.</li>
+      <li>Touch-move: once you pick up one of your pieces on the board, you must play it. You can switch this off in New game.</li>
+      <li>If all 12 of your pieces are on the board, keep playing by moving them.</li>
+    </ul>
+    <h3>Draws</h3>
+    <p>The game is a draw if the same position comes up 3 times (both players repeating the same moves), or if both players agree.</p>
+    <h3>Using this version</h3>
+    <ul>
+      <li>Tap or click a stack or one of your pieces, then tap a highlighted square. Highlighted squares have a dashed ring.</li>
+      <li>Keyboard: Tab to the board, use the arrow keys to move between squares, and press Enter or Space to choose. While on the board or a stack, keys 1, 2 and 3 pick your stacks. Escape cancels a choice.</li>
+      <li>Red pieces have a white ring and yellow pieces are solid, so the colours can be told apart without relying on colour.</li>
+      <li>Squares are named by column letter (A to D, left to right) and row number (1 to 4, top to bottom).</li>
+    </ul>
+    <div class="dlg-actions"><button class="btn btn-primary" id="rules-close">Close</button></div>
+  </form>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script src="game.js"></script>
+<script src="ai.js"></script>
+<script src="sketch.js"></script>
+</body>
+</html>
