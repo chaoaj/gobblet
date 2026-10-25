@@ -1,8 +1,13 @@
 /*
  * ai.js — Computer opponents for Gobblet.
- *   easy : picks a uniformly random legal move.
- *   hard : negamax search with alpha-beta pruning and iterative deepening
- *          under a time budget, plus a line-based evaluation.
+ *   easy   : picks a uniformly random legal move.
+ *   medium : looks exactly 2 plies ahead (its move + your reply). It always
+ *            takes a win and avoids moves that let you win next turn, but
+ *            MEDIUM_SLIP of the time it plays one of its next-best safe moves
+ *            (from the top MEDIUM_POOL) instead of its best one, so it can be
+ *            outplanned.
+ *   hard   : negamax search with alpha-beta pruning and iterative deepening
+ *            under a time budget, plus a line-based evaluation.
  */
 (function (root) {
   'use strict';
@@ -10,6 +15,9 @@
   const { LINES, owner, sizeOf, top, legalMoves, applyMove, undoMove, winnerAfter } = G;
 
   const WIN = 100000;
+  const MEDIUM_DEPTH = 2;   // plies searched by Medium
+  const MEDIUM_SLIP = 0.2;  // chance Medium plays a next-best move instead of its best
+  const MEDIUM_POOL = 5;    // how many next-best safe moves a slip chooses from
   // Value of showing k pieces of your colour in an otherwise friendly line.
   const LINE_W = [0, 2, 12, 70, 0];
 
@@ -98,6 +106,7 @@
 
     let bestMove = moves[0];
     let reached = 0;
+    let lastScored = null;
     for (let depth = 1; depth <= (maxDepth || 8); depth++) {
       const scored = [];
       let alpha = -Infinity;
@@ -122,6 +131,7 @@
       }
       reached = depth;
       scored.sort((a, b) => b.v - a.v);
+      lastScored = scored;
       // Pick randomly among moves tied for best so games vary.
       const top1 = scored[0].v;
       const ties = scored.filter((x) => x.v >= top1 - 0.0001);
@@ -129,7 +139,23 @@
       moves = scored.map((x) => x.m);
       if (Math.abs(top1) >= WIN - 50) break; // forced result found
     }
-    return { move: bestMove, depth: reached, nodes: ctx.nodes };
+    return { move: bestMove, depth: reached, nodes: ctx.nodes, scored: lastScored };
+  }
+
+  function mediumMove(state) {
+    // Full-width search to MEDIUM_DEPTH (generous time cap so it always finishes).
+    const r = hardMove(state, 5000, MEDIUM_DEPTH);
+    if (!r || !r.scored) return r;
+    const best = r.scored[0];
+    if (best.v >= WIN - 50) return r;                        // always take a win
+    const safe = r.scored.filter((x) => x.v > -(WIN - 50));  // your reply can't win
+    if (safe.length > 1 && Math.random() < MEDIUM_SLIP) {
+      // Slip to a decent alternative, not a wild one: ranks 2..(MEDIUM_POOL+1).
+      const pool = safe.slice(1, 1 + MEDIUM_POOL);
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      return { move: pick.m, depth: r.depth, nodes: r.nodes, slipped: true };
+    }
+    return r;
   }
 
   function easyMove(state) {
@@ -139,12 +165,14 @@
   }
 
   function chooseMove(state, level, timeMs) {
-    return level === 'hard' ? hardMove(state, timeMs) : easyMove(state);
+    if (level === 'hard') return hardMove(state, timeMs);
+    if (level === 'medium') return mediumMove(state);
+    return easyMove(state);
   }
 
   /** Would the computer accept a draw offer? (score from its own view) */
   function acceptsDraw(state, cpuPlayer, level) {
-    if (level !== 'hard') return Math.random() < 0.5;
+    if (level === 'easy') return Math.random() < 0.5;
     const s = G.cloneState(state);
     s.turn = cpuPlayer;
     return evaluate(s, cpuPlayer) <= 5;

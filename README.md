@@ -12,7 +12,7 @@ Open `index.html` in a browser. p5.js 1.9.4 and the fonts load from CDNs, so you
 | File | What it does |
 |---|---|
 | `game.js` | Rules engine with no p5 dependency: legal moves, gobbling, the 3-in-a-row exception, the uncover rule, win and repetition checks. Also loads in Node (`require('./game.js')`). |
-| `ai.js` | Computer players. **Easy** picks a random legal move. **Hard** runs negamax with alpha-beta pruning and iterative deepening for about 0.9 s (usually 4–5 plies). |
+| `ai.js` | Computer players. **Easy** picks a random legal move. **Medium** searches exactly 2 plies (its move and your reply): it always takes a win and never leaves you a one-move win, but 20% of the time it plays one of its next 5 best safe moves instead of its best (tune with `MEDIUM_DEPTH`, `MEDIUM_SLIP` and `MEDIUM_POOL`). **Hard** runs negamax with alpha-beta pruning and iterative deepening for about 0.9 s (usually 4–5 plies). |
 | `sketch.js` | p5 drawing, layout, input, screen-reader labels and game flow. |
 | `style.css` | Page chrome, light/dark themes, focus styles, dialogs. |
 | `index.html` | Page structure, dialogs, rules text. |
@@ -31,7 +31,7 @@ You can also choose who moves first, turn the touch-move rule on or off, show or
 - A piece on the board can move to any empty square or onto any smaller piece.
 - After each move, if the opponent shows 4 in a row (for example because you uncovered their piece), the opponent wins, even if you also made a line. This is the rules sheet's "you lose unless you cover a piece in that line".
 - "Identical moves 3 times in a row" is treated as the same position (including whose turn it is) coming up 3 times.
-- Draw by agreement: in a 2-player game the other person accepts or declines. A Hard computer accepts when its evaluation is not ahead. An Easy computer accepts half the time.
+- Draw by agreement: in a 2-player game the other person accepts or declines. A Medium or Hard computer accepts when its evaluation is not ahead. An Easy computer accepts half the time.
 - If a player has no legal move they pass. If neither can move, the game is a draw.
 
 ## Accessibility (WCAG 2.2 AA / Section 508)

@@ -209,7 +209,7 @@ function drawPanels() {
 function seatLabel(p) {
   const seat = settings.seats[p];
   if (seat === 'human') return settings.mode === 2 ? 'Player ' + (p + 1) : 'You';
-  return seat === 'hard' ? 'Computer\nHard' : 'Computer\nEasy';
+  return 'Computer\n' + seat.charAt(0).toUpperCase() + seat.slice(1);
 }
 
 function drawBoard() {
@@ -839,7 +839,11 @@ function refreshStatus() {
     const seat = settings.seats[state.turn];
     if (seat !== 'human') {
       status.textContent = `${name} (computer) is thinking…`;
-      hint.textContent = seat === 'hard' ? 'Hard computer: searching ahead for the best move.' : 'Easy computer: picks a random legal move.';
+      hint.textContent = {
+        hard: 'Hard computer: searching ahead for the best move.',
+        medium: 'Medium computer: checks its move and your reply.',
+        easy: 'Easy computer: picks a random legal move.',
+      }[seat];
     } else {
       status.textContent = settings.mode === 1 ? `Your turn (${name})` : `${name} to move`;
       if (!selection) hint.textContent = 'Choose a piece: one of your stacks, or one of your pieces on the board.';
